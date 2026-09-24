@@ -1,0 +1,27 @@
+name: coach_tour
+description: >-
+  Spotlight onboarding tours for Flutter: a morphing hole, breathing ring,
+  auto-placed card that never covers the target, scroll-into-view, RTL and a11y.
+version: 0.1.0
+homepage: https://abdeldjalilchougui.biz/
+repository: https://github.com/AbeldjalilChougui/coach_tour
+issue_tracker: https://github.com/AbeldjalilChougui/coach_tour/issues
+topics:
+  - onboarding
+  - tutorial
+  - showcase
+  - spotlight
+  - widget
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
