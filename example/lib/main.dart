@@ -1,122 +1,186 @@
+import 'package:coach_tour/coach_tour.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const DemoApp());
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/// Demo app for coach_tour.
+class DemoApp extends StatefulWidget {
+  /// Creates the demo app.
+  const DemoApp({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<DemoApp> createState() => _DemoAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _DemoAppState extends State<DemoApp> {
+  Locale _locale = const Locale('en');
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'coach_tour demo',
+        locale: _locale,
+        supportedLocales: const [Locale('en'), Locale('fr'), Locale('ar')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+        darkTheme: ThemeData(
+          colorSchemeSeed: Colors.indigo,
+          brightness: Brightness.dark,
+          useMaterial3: true,
+        ),
+        home: HomePage(
+          locale: _locale,
+          onLocale: (l) => setState(() => _locale = l),
+        ),
+      );
+}
+
+/// Screen with a few targets spread around, including one far down a list.
+class HomePage extends StatefulWidget {
+  /// Creates the page.
+  const HomePage({required this.locale, required this.onLocale, super.key});
+
+  /// Current locale.
+  final Locale locale;
+
+  /// Changes the locale.
+  final ValueChanged<Locale> onLocale;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // Kept for the whole app session; swap for a shared_preferences-backed
+  // store to remember across launches (see the README).
+  static final CoachTourStore _store = MemoryCoachTourStore();
+
+  final _search = GlobalKey();
+  final _fab = GlobalKey();
+  final _deep = GlobalKey();
+  final _language = GlobalKey();
+  bool _passThrough = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CoachTour.startOnce(
+        context,
+        tourId: 'home',
+        store: _store,
+        steps: _steps(),
+      );
     });
   }
 
+  List<CoachTarget> _steps() => [
+        const CoachTarget.centered(
+          title: 'Welcome',
+          body: 'A 30-second tour of this screen. Tap anywhere to continue.',
+        ),
+        CoachTarget(
+          key: _search,
+          title: 'Search',
+          body: 'Find anything by name. The hole morphs from one target to '
+              'the next.',
+          shape: CoachShape.stadium,
+        ),
+        CoachTarget(
+          key: _language,
+          title: 'Language',
+          body: 'Buttons are translated in English, French and Arabic, and '
+              'the layout flips in right-to-left.',
+          shape: CoachShape.circle,
+          padding: const EdgeInsets.all(4),
+        ),
+        CoachTarget(
+          key: _deep,
+          title: 'Scrolled into view',
+          body: 'This row was off screen. The tour scrolled to it first.',
+          radius: 16,
+        ),
+        CoachTarget(
+          key: _fab,
+          title: 'Add',
+          body: 'The card flips above targets near the bottom.',
+          shape: CoachShape.circle,
+          contentBuilder: (context, details) => CoachTourCard(
+            details: details,
+            child: const Text('Custom content can sit inside the card.'),
+          ),
+        ),
+      ];
+
+  void _replay() {
+    CoachTour.start(
+      context,
+      _steps(),
+      options: CoachTourOptions(
+        holeTap: _passThrough ? CoachHoleTap.passThrough : CoachHoleTap.block,
+        backAction: CoachBackAction.previous,
+      ),
+      onTargetSkipped: (s) => debugPrint('Skipped $s'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final next = switch (widget.locale.languageCode) {
+      'en' => const Locale('fr'),
+      'fr' => const Locale('ar'),
+      _ => const Locale('en'),
+    };
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('coach_tour'),
+        actions: [
+          IconButton(
+            key: _language,
+            tooltip: 'Switch language',
+            icon: const Icon(Icons.translate),
+            onPressed: () => widget.onLocale(next),
+          ),
+          IconButton(
+            tooltip: 'Replay tour',
+            icon: const Icon(Icons.play_circle_outline),
+            onPressed: _replay,
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SearchBar(
+              key: _search,
+              hintText: 'Search',
+              leading: const Icon(Icons.search),
             ),
+            SwitchListTile(
+              title: const Text('Taps in the hole reach the target'),
+              value: _passThrough,
+              onChanged: (v) => setState(() => _passThrough = v),
+            ),
+            for (var i = 0; i < 30; i++)
+              Card(
+                key: i == 24 ? _deep : null,
+                child: ListTile(
+                  leading: CircleAvatar(child: Text('${i + 1}')),
+                  title: Text('Item ${i + 1}'),
+                  subtitle: const Text('A row in a long list'),
+                ),
+              ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
+        key: _fab,
+        onPressed: () {},
         child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 }
